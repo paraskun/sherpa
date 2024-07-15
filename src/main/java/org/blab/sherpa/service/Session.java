@@ -1,6 +1,8 @@
 package org.blab.sherpa.service;
 
 public interface Session {
+  Connect connect();
+
   Listen listen();
 
   Poll poll(String topic);
@@ -11,5 +13,5 @@ public interface Session {
 
   Publish publish(Event event);
 
-  void close();
+  Close close();
 }
