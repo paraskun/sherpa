@@ -4,7 +4,7 @@ import lombok.Getter;
 import reactor.core.publisher.Mono;
 
 @Getter
-public abstract class Poll extends Command<Event> {
+public class Poll extends Command<Event> {
   private final String topic;
 
   protected Poll(String topic, Mono<Event> cmd) {

@@ -1,9 +1,9 @@
 package org.blab.sherpa.service;
 
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-public abstract class Connect extends Command<Long> {
-  protected Connect(Flux<Long> cmd) {
+public class Connect extends Command<Boolean> {
+  protected Connect(Mono<Boolean> cmd) {
     super(cmd);
   }
 }
