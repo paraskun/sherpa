@@ -7,7 +7,6 @@ import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 import com.hivemq.client.mqtt.mqtt5.message.subscribe.Mqtt5Subscribe;
 import com.hivemq.client.mqtt.mqtt5.message.unsubscribe.Mqtt5Unsubscribe;
 import lombok.NonNull;
-import lombok.extern.log4j.Log4j2;
 import reactor.adapter.rxjava.RxJava2Adapter;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
@@ -16,7 +15,6 @@ import reactor.core.publisher.Mono;
 import java.net.InetSocketAddress;
 import java.util.UUID;
 
-@Log4j2
 public class SynchronousSession implements Session {
   private final Mqtt5RxClient client;
 

@@ -1,0 +1,3 @@
+address:
+  hostname: localhost
+  port: 1883
