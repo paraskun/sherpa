@@ -3,13 +3,13 @@ package org.blab.sherpa.service;
 import org.reactivestreams.Publisher;
 
 public abstract class Command<T> {
-  private final Publisher<T> result;
+  private final Publisher<T> cmd;
 
   protected Command(Publisher<T> cmd) {
-    this.result = cmd;
+    this.cmd = cmd;
   }
 
-  public Publisher<T> result() {
-    return result;
+  public Publisher<T> get() {
+    return cmd;
   }
 }

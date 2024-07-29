@@ -4,10 +4,10 @@ import lombok.Getter;
 import reactor.core.publisher.Mono;
 
 @Getter
-public class Publish extends Command<Event> {
-  private final Event event;
+public class Publish<T> extends Command<T> {
+  private final T event;
 
-  protected Publish(Event event, Mono<Event> cmd) {
+  protected Publish(T event, Mono<T> cmd) {
     super(cmd);
     this.event = event;
   }

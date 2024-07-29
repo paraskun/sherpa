@@ -2,8 +2,8 @@ package org.blab.sherpa.service;
 
 import reactor.core.publisher.Mono;
 
-public class Connect extends Command<Boolean> {
-  protected Connect(Mono<Boolean> cmd) {
+public class Connect<T> extends Command<T> {
+  protected Connect(Mono<T> cmd) {
     super(cmd);
   }
 }

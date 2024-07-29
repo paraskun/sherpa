@@ -2,8 +2,8 @@ package org.blab.sherpa.service;
 
 import reactor.core.publisher.Mono;
 
-public class Close extends Command<Long> {
-  protected Close(Mono<Long> cmd) {
+public class Close<T> extends Command<T> {
+  protected Close(Mono<T> cmd) {
     super(cmd);
   }
 }
