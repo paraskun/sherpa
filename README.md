@@ -19,3 +19,4 @@ Note, that visual mode can be accessed via corresponding GitHub Project.
     - [ ] As a user, I want to receive errors using the legacy protocol.
     - [ ] As a user, I want my messages to be delivered to an enterprise-grade messaging platform.
     - [ ] As a user, I want my messages to be transformed according to enterprise protocol and best-practices.
+    - [ ] As a user, I want to scale the service with one command.
