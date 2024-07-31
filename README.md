@@ -7,16 +7,18 @@ existing client applications, thereby enhancing overall platform maintainability
 
 ## Product Backlog 
 
-Note, that visual mode can be accessed via corresponding GitHub Project.
-
 - Epics:
-    - [ ] Test launch in 2024 mid-August.
-    - [ ] Production launch in 2024 end-August.
+    - [ ] MVP before 2024 mid-August.
 
 - Stories:
-    - [ ] As a user, I want to send messages to the old remote address.
-    - [ ] As a user, I want to send and receive messages using the legacy protocol.
-    - [ ] As a user, I want to receive errors using the legacy protocol.
-    - [ ] As a user, I want my messages to be delivered to an enterprise-grade messaging platform.
-    - [ ] As a user, I want my messages to be transformed according to enterprise protocol and best-practices.
-    - [ ] As a user, I want to scale the service with one command.
+    - [ ] Transfer messages to enterprise platform.
+
+      A new connection activates a new session.
+      Correctly formed messages are converted into appropriate commands and executed on the target platform.
+      Incorrectly formed messages are converted to corresponding error messages and sent back.
+      Closing a connection results in the session being closed.
+
+    - [ ] Transfer messages from enterpise platform.
+
+      Target platform exceptions cause the connection and session to be closed.
+      Messages from the target platform are converted and sent to the client.
