@@ -2,18 +2,18 @@ package org.blab.sherpa.service;
 
 import org.springframework.messaging.Message;
 
-public interface Session<T> {
+public interface Session {
   Connect<Void> connect();
 
-  Listen<Message<T>> listen();
+  Listen<Message<?>> listen();
 
-  Poll<Message<T>> poll(String topic);
+  Poll<Message<?>> poll(String topic);
 
   Subscribe<String> subscribe(String topic);
 
   Unsubscribe<String> unsubscribe(String topic);
 
-  Publish<Message<T>> publish(Message<T> event);
+  Publish<Message<?>> publish(Message<?> event);
 
   Close<Void> close();
 }

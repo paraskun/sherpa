@@ -14,11 +14,15 @@ existing client applications, thereby enhancing overall platform maintainability
     - [ ] Transfer messages to enterprise platform.
 
       A new connection activates a new session.
-      Correctly formed messages are converted into appropriate commands and executed on the target platform.
-      Incorrectly formed messages are converted to corresponding error messages and sent back.
+      Correctly formed messages are interpreted into appropriate commands and executed on the target platform.
+      Incorrectly formed messages are interpreted to corresponding error messages and sent back.
       Closing a connection results in the session being closed.
 
     - [ ] Transfer messages from enterpise platform.
 
       Target platform exceptions cause the connection and session to be closed.
-      Messages from the target platform are converted and sent to the client.
+      Messages from the target platform are interpreted and sent to the client.
+
+## Resources
+
+- Architecture & Design: https://www.figma.com/board/G3RXv0wJOW2fBGq17y7Qso/sherpa?node-id=0-1&t=X5ItWFhX0CbPDgDP-1`
