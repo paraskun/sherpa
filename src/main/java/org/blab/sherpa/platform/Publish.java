@@ -1,4 +1,4 @@
-package org.blab.sherpa.service;
+package org.blab.sherpa.platform;
 
 import lombok.Getter;
 import reactor.core.publisher.Mono;
