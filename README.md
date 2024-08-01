@@ -5,20 +5,20 @@
 To seamlessly transition from a legacy messaging system to a robust, enterprise-grade platform without disrupting
 existing client applications, thereby enhancing overall platform maintainability, performance and scalability.
 
-## Product Backlog 
+## Product Backlog
 
 - Epics:
-    - [ ] MVP before 2024 mid-August.
+  - [ ] MVP before 2024 mid-August.
 
 - Stories:
-    - [ ] Transfer messages to enterprise platform.
+  - [ ] Transfer messages to enterprise platform.
 
       A new connection activates a new session.
       Correctly formed messages are interpreted into appropriate commands and executed on the target platform.
       Incorrectly formed messages are interpreted to corresponding error messages and sent back.
       Closing a connection results in the session being closed.
 
-    - [ ] Transfer messages from enterpise platform.
+  - [ ] Transfer messages from enterpise platform.
 
       Target platform exceptions cause the connection and session to be closed.
       Messages from the target platform are interpreted and sent to the client.
