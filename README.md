@@ -25,4 +25,4 @@ existing client applications, thereby enhancing overall platform maintainability
 
 ## Resources
 
-- Architecture & Design: https://www.figma.com/board/G3RXv0wJOW2fBGq17y7Qso/sherpa?node-id=0-1&t=X5ItWFhX0CbPDgDP-1`
+- Architecture & Design: <https://www.figma.com/board/G3RXv0wJOW2fBGq17y7Qso/sherpa?node-id=0-1&t=X5ItWFhX0CbPDgDP-1`>
