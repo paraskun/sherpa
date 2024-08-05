@@ -3,7 +3,7 @@ package org.blab.sherpa.platform;
 import org.springframework.messaging.Message;
 
 public interface Session {
-  Connect<Void> connect();
+  Connect<Boolean> connect();
 
   Listen<Message<?>> listen();
 
@@ -13,7 +13,7 @@ public interface Session {
 
   Unsubscribe<String> unsubscribe(String topic);
 
-  Publish<Message<?>> publish(Message<?> event);
+  Publish<Message<?>> publish(Message<?> msg);
 
   Close<Void> close();
 }

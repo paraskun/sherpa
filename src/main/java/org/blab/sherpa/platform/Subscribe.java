@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 public class Subscribe<T> extends Command<T> {
   private final String topic;
 
-  protected Subscribe(String topic, Mono<T> cmd) {
+  public Subscribe(String topic, Mono<T> cmd) {
     super(cmd);
     this.topic = topic;
   }

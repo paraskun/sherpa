@@ -1,2 +1,7 @@
 server:
-  port: 20041
+    port: 20041
+
+platform:
+    mqtt:
+        host: localhost
+        port: 1883

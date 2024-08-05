@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 public class Poll<T> extends Command<T> {
   private final String topic;
 
-  protected Poll(String topic, Mono<T> cmd) {
+  public Poll(String topic, Mono<T> cmd) {
     super(cmd);
     this.topic = topic;
   }

@@ -1,14 +1,15 @@
 package org.blab.sherpa.platform;
 
 import lombok.Getter;
+import org.springframework.messaging.Message;
 import reactor.core.publisher.Mono;
 
 @Getter
 public class Publish<T> extends Command<T> {
-  private final T event;
+  private final Message<?> msg;
 
-  protected Publish(T event, Mono<T> cmd) {
+  public Publish(Message<?> msg, Mono<T> cmd) {
     super(cmd);
-    this.event = event;
+    this.msg = msg;
   }
 }

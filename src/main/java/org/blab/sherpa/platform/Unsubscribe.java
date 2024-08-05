@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
 public class Unsubscribe<T> extends Command<T> {
   private final String topic;
 
-  protected Unsubscribe(String topic, Mono<T> cmd) {
+  public Unsubscribe(String topic, Mono<T> cmd) {
     super(cmd);
     this.topic = topic;
   }
