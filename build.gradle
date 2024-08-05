@@ -1,9 +1,13 @@
 plugins {
-    id 'java'
+    id 'application'
 }
 
 group = 'org.blab'
 version = '1.0-SNAPSHOT'
+
+application {
+    mainClassName = 'org.blab.sherpa.Sherpa'
+}
 
 repositories {
     mavenCentral()
