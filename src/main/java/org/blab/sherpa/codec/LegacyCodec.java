@@ -93,7 +93,7 @@ public class LegacyCodec implements Codec<Message<?>> {
         var builder = new StringBuilder("time:" + encodeTimestamp(msg.getHeaders().getTimestamp()));
 
         if (msg.getHeaders().containsKey("topic"))
-          builder.append(String.format("|name:%s", msg.getHeaders().get("topic", String.class)));
+          builder.append(String.format("|name:%s", encodeTopic(msg.getHeaders().get("topic", String.class))));
 
         if (msg.getHeaders().containsKey("description"))
           builder.append(String.format("|descr:%s", msg.getHeaders().get("description", String.class)));
@@ -101,8 +101,12 @@ public class LegacyCodec implements Codec<Message<?>> {
         ((Map<String, Object>) msg.getPayload())
           .forEach((k, v) -> builder.append(String.format("|%s:%s", k, v.toString())));
 
-        return Unpooled.copiedBuffer(builder.toString().getBytes(StandardCharsets.UTF_8));
+        return Unpooled.copiedBuffer(builder.append('\n').toString().getBytes(StandardCharsets.UTF_8));
       });
+  }
+
+  private String encodeTopic(String topic) {
+    return topic.replace("vcas/", "");
   }
 
   private String encodeTimestamp(Long timestamp) {

@@ -1,12 +1,15 @@
 package org.blab.sherpa.platform.mqtt;
 
 import io.netty.buffer.Unpooled;
+import lombok.extern.log4j.Log4j2;
 import org.blab.sherpa.codec.Codec;
 import org.blab.sherpa.platform.*;
 import org.reactivestreams.Publisher;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Scope;
+import org.springframework.core.codec.DecodingException;
 import org.springframework.integration.support.MutableMessageBuilder;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
@@ -23,6 +26,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Objects;
 
+@Log4j2
 @Service
 @Scope("prototype")
 public class MqttSession implements Session {
@@ -38,6 +42,7 @@ public class MqttSession implements Session {
       .buildRx();
   }
 
+  @Autowired
   public void setCodec(@Qualifier("jsonCodec") Codec<Message<?>> codec) {
     this.codec = codec;
   }
@@ -53,7 +58,9 @@ public class MqttSession implements Session {
   public Listen<Message<?>> listen() {
     return new Listen<>(RxJava2Adapter
       .flowableToFlux(client.publishes(MqttGlobalPublishFilter.SUBSCRIBED))
-      .flatMap(this::decode));
+      .flatMap(event -> Mono.from(decode(event))
+        .doOnError(t -> t instanceof DecodingException, log::error)
+        .onErrorResume(t -> t instanceof DecodingException, t -> Mono.empty())));
   }
 
   @Override
