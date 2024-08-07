@@ -2,7 +2,6 @@ package org.blab.sherpa;
 
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
-import lombok.extern.log4j.Log4j2;
 import org.blab.sherpa.flow.Flow;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
@@ -11,7 +10,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import reactor.netty.tcp.TcpServer;
 
-@Log4j2
 @SpringBootApplication
 public class Sherpa {
   @Value("${server.port}")
@@ -23,8 +21,6 @@ public class Sherpa {
 
   @EventListener
   public void onReady(ApplicationReadyEvent event) {
-    log.info("Ready.");
-
     var server = TcpServer.create()
       .port(port)
       .doOnChannelInit((obs, cfg, addr) -> cfg.pipeline()
