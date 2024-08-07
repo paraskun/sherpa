@@ -8,8 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.reactivestreams.Publisher;
 import org.springframework.core.codec.DecodingException;
 import org.springframework.core.codec.EncodingException;
-import org.springframework.integration.support.MutableMessageBuilder;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -26,7 +26,7 @@ public class JsonCodec implements Codec<Message<?>> {
     return Flux.from(in)
       .map(buff -> {
           try {
-            return MutableMessageBuilder
+            return MessageBuilder
               .withPayload(gson.fromJson(
                 buff.toString(StandardCharsets.UTF_8),
                 new TypeToken<Map<String, Object>>() {

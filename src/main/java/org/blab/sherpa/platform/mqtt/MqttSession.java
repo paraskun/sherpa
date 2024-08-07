@@ -10,8 +10,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Scope;
 import org.springframework.core.codec.DecodingException;
-import org.springframework.integration.support.MutableMessageBuilder;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
 import com.hivemq.client.mqtt.MqttGlobalPublishFilter;
 import com.hivemq.client.mqtt.mqtt5.Mqtt5Client;
@@ -102,13 +103,13 @@ public class MqttSession implements Session {
   private Publisher<Message<?>> decode(Mqtt5Publish event) {
     return codec.decode(Mono.just(Unpooled.copiedBuffer(event.getPayloadAsBytes())))
       .map(msg -> {
-        var m = MutableMessageBuilder.fromMessage(msg)
+        var m = MessageBuilder.fromMessage(msg)
           .setHeader("topic", event.getTopic().toString());
 
         event.getUserProperties().asList().stream()
           .filter(p -> p.getName().toString().equals("timestamp"))
           .findAny()
-          .ifPresent(p -> m.setHeader("timestamp", Long.parseLong(p.getValue().toString())));
+          .ifPresent(p -> m.setHeader("_timestamp", Long.parseLong(p.getValue().toString())));
 
         return m.build();
       });
@@ -120,10 +121,16 @@ public class MqttSession implements Session {
         .topic(Objects.requireNonNull(msg.getHeaders().get("topic", String.class)))
         .retain(true)
         .userProperties()
-        .add("timestamp", Objects.requireNonNull(msg.getHeaders().getTimestamp()).toString())
+        .add("timestamp", getTimestamp(msg.getHeaders()).toString())
         .applyUserProperties()
         .payload(payload.array())
         .build()
       );
+  }
+
+  private Long getTimestamp(MessageHeaders headers) {
+    return headers.containsKey("_timestamp") ?
+      headers.get("_timestamp", Long.class) :
+      headers.getTimestamp();
   }
 }

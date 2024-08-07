@@ -1,0 +1,23 @@
+networks:
+    blab:
+        driver: bridge
+
+services:
+    emqx:
+        image: emqx/emqx
+        ports:
+            - "1883:1883"
+            - "18083:18083"
+        networks:
+            - blab
+    
+    sherpa:
+        image: sherpa:1.0-SNAPSHOT
+        ports:
+            - "8080:8080"
+        environment:
+            - server.port=8080
+            - platform.mqtt.host=emqx
+            - platform.mqtt.port=1883
+        networks:
+            - blab

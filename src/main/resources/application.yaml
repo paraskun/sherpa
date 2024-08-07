@@ -1,5 +1,5 @@
 server:
-    port: 20041
+    port: 8080
 
 platform:
     mqtt:

@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @Component
 public class LegacyCodec implements Codec<Message<?>> {
   private static final String TIME_FMT = "dd.MM.yyyy HH_mm_ss.SSS";
-  
+
   public static final String METHOD = "method";
 
   @Override
@@ -38,7 +38,7 @@ public class LegacyCodec implements Codec<Message<?>> {
             case "method", "meth", "m" -> headers.put(METHOD, decodeMethod(value));
             case "name", "n" -> headers.put("topic", decodeTopic(value));
             case "descr" -> headers.put("description", value);
-            case "time" -> headers.put("timestamp", decodeTimestamp(value));
+            case "time" -> headers.put("_timestamp", decodeTimestamp(value));
             default -> payload.put(key, value);
           }
         });
@@ -90,7 +90,7 @@ public class LegacyCodec implements Codec<Message<?>> {
   public Flux<ByteBuf> encode(Publisher<Message<?>> in) {
     return Flux.from(in)
       .map(msg -> {
-        var builder = new StringBuilder("time:" + encodeTimestamp(msg.getHeaders().getTimestamp()));
+        var builder = new StringBuilder("time:" + encodeTimestamp(getTimestamp(msg.getHeaders())));
 
         if (msg.getHeaders().containsKey("topic"))
           builder.append(String.format("|name:%s", encodeTopic(msg.getHeaders().get("topic", String.class))));
@@ -107,6 +107,12 @@ public class LegacyCodec implements Codec<Message<?>> {
 
   private String encodeTopic(String topic) {
     return topic.replace("vcas/", "");
+  }
+
+  private Long getTimestamp(MessageHeaders headers) {
+    return headers.containsKey("_timestamp") ?
+      headers.get("_timestamp", Long.class) :
+      headers.getTimestamp();
   }
 
   private String encodeTimestamp(Long timestamp) {
