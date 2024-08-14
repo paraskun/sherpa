@@ -11,17 +11,25 @@ existing client applications, thereby enhancing overall platform maintainability
   - [ ] MVP before 2024 mid-August.
 
 - Stories:
-  - [ ] Transfer messages to enterprise platform.
+  - [x] Transfers messages to enterprise platform.
 
       A new connection activates a new session.
       Correctly formed messages are interpreted into appropriate commands and executed on the target platform.
       Incorrectly formed messages are interpreted to corresponding error messages and sent back.
       Closing a connection results in the session being closed.
 
-  - [ ] Transfer messages from enterpise platform.
+  - [x] Transfers messages from enterpise platform.
 
       Target platform exceptions cause the connection and session to be closed.
       Messages from the target platform are interpreted and sent to the client.
+
+  - [ ] Proofs itself.
+      
+      Design and implement test strategy for main modules: flow, codec and platform.
+
+  - [ ] Explains itself.
+      
+      Cover codebase with javadocs & write usage instructions.
 
 ## Resources
 
