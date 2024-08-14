@@ -1,40 +1,33 @@
 package org.blab.sherpa.flow;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
 import org.blab.sherpa.codec.Codec;
 import org.blab.sherpa.codec.LegacyCodec;
 import org.blab.sherpa.platform.Session;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Scope;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.ErrorMessage;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Service;
+
+import io.netty.buffer.ByteBuf;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.netty.NettyInbound;
-import reactor.netty.NettyOutbound;
 
 import java.time.Duration;
 import java.util.Map;
 
-@Log4j2
 @Service
-@Scope("prototype")
-@RequiredArgsConstructor
-public class LegacyFlow implements Flow {
-  private final NettyInbound in;
-  private final NettyOutbound out;
-
-  private Session session;
+public class LegacyFlow implements Flow, ApplicationContextAware {
   private Codec<Message<?>> codec;
+  private ApplicationContext context;
 
-  @Autowired
-  public void setSession(@Qualifier("mqttSession") Session session) {
-    this.session = session;
+  @Override
+  public void setApplicationContext(ApplicationContext context) {
+    this.context = context;
   }
 
   @Autowired
@@ -43,25 +36,26 @@ public class LegacyFlow implements Flow {
   }
 
   @Override
-  public Mono<Void> get() {
-    return out.send(codec.encode(Flux.merge(
+  public Publisher<ByteBuf> create(Publisher<ByteBuf> in) {
+    var session = context.getBean("mqttSession", Session.class);
+
+    return codec.encode(Flux.merge(
       Mono.from(session.connect().get()).log()
         .timeout(Duration.ofSeconds(5))
         .flatMap(b -> Mono.empty()),
       Flux.from(session.listen().get()).log(),
-      Flux.from(codec.decode(in.receive()))
+      Flux.from(codec.decode(in))
         .flatMap(msg -> {
           if (msg instanceof ErrorMessage error)
             return mapError(error);
           else
-            return mapRequest(msg);
+            return mapRequest(msg, session);
         }).doOnCancel(() -> Mono.from(session.close().get()).then()).log()
-    ))).then();
+    ));
   }
 
-  private Publisher<Message<?>> mapRequest(Message<?> msg) {
-    return switch (msg.getHeaders().get(LegacyCodec.METHOD, LegacyCodec.Method.class)) {
-      case null -> throw new RuntimeException();
+  private Publisher<Message<?>> mapRequest(Message<?> msg, Session session) {
+    return switch (msg.getHeaders().get(LegacyCodec.HEADERS_METHOD, LegacyCodec.Method.class)) {
       case POLL -> session
         .poll(msg.getHeaders().get("topic", String.class))
         .get();
@@ -78,8 +72,9 @@ public class LegacyFlow implements Flow {
 
   private Publisher<Message<?>> mapError(ErrorMessage msg) {
     return Mono.just(MessageBuilder.withPayload(Map.of("val", "error"))
-      .setHeader("topic", msg.getHeaders().containsKey("topic") ? msg.getHeaders().get("topic", String.class) : "error")
-      .setHeader("description", msg.getPayload().getMessage())
+      .setHeader(Codec.HEADERS_TOPIC, msg.getHeaders().containsKey("topic") ? msg.getHeaders().get("topic", String.class) : "error")
+      .setHeader(LegacyCodec.HEADERS_DESCRIPTION, msg.getPayload().getMessage())
       .build());
   }
 }
+

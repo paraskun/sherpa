@@ -8,6 +8,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+
 import reactor.netty.tcp.TcpServer;
 
 @SpringBootApplication
@@ -23,13 +24,18 @@ public class Sherpa {
   public void onReady(ApplicationReadyEvent event) {
     var server = TcpServer.create()
       .port(port)
-      .doOnChannelInit((obs, cfg, addr) -> cfg.pipeline()
-        .addLast(new DelimiterBasedFrameDecoder(2048, Delimiters.nulDelimiter()))
+      .doOnChannelInit((obs, cfg, addr) -> 
+          cfg.pipeline()
+            .addLast(new DelimiterBasedFrameDecoder(4096, Delimiters.nulDelimiter()))
       )
-      .handle((in, out) -> event.getApplicationContext()
-        .getBean(Flow.class, in, out).get())
-      .bindNow();
+      .handle((in, out) -> 
+          out.send(event.getApplicationContext()
+              .getBean(Flow.class)
+              .create(in.receive()))
+            .then()
+      ).bindNow();
 
     server.onDispose().block();
   }
 }
+

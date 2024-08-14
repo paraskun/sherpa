@@ -9,6 +9,7 @@ import org.reactivestreams.Publisher;
 import org.springframework.core.codec.DecodingException;
 import org.springframework.core.codec.EncodingException;
 import org.springframework.messaging.Message;
+import org.springframework.messaging.support.ErrorMessage;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -25,18 +26,16 @@ public class JsonCodec implements Codec<Message<?>> {
   public Flux<Message<?>> decode(Publisher<ByteBuf> in) {
     return Flux.from(in)
       .map(buff -> {
-          try {
-            return MessageBuilder
-              .withPayload(gson.fromJson(
-                buff.toString(StandardCharsets.UTF_8),
-                new TypeToken<Map<String, Object>>() {
-                }.getType()
-              ))
-              .build();
-          } catch (Exception e) {
-            throw new DecodingException(e.getMessage());
-          }
+        try {
+          return MessageBuilder
+            .withPayload(gson.fromJson(
+                  buff.toString(StandardCharsets.UTF_8),
+                  new TypeToken<Map<String, Object>>() {}.getType()
+                  )).build();
+        } catch (Exception e) {
+          return new ErrorMessage(new DecodingException(e.getMessage()));
         }
+      }
       );
   }
 
@@ -45,8 +44,7 @@ public class JsonCodec implements Codec<Message<?>> {
     return Flux.from(in)
       .map(msg -> {
         try {
-          return Unpooled.
-            copiedBuffer(gson.toJson(msg.getPayload())
+          return Unpooled.copiedBuffer(gson.toJson(msg.getPayload())
               .getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
           throw new EncodingException(e.getMessage());
@@ -54,3 +52,4 @@ public class JsonCodec implements Codec<Message<?>> {
       });
   }
 }
+

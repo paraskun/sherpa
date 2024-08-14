@@ -1,7 +1,9 @@
 package org.blab.sherpa.flow;
 
-import reactor.core.publisher.Mono;
+import org.reactivestreams.Publisher;
+import io.netty.buffer.ByteBuf;
 
 public interface Flow {
-  Mono<Void> get();
+  Publisher<ByteBuf> create(Publisher<ByteBuf> in);
 }
+
