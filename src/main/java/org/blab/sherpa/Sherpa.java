@@ -23,19 +23,15 @@ public class Sherpa {
   @EventListener
   public void onReady(ApplicationReadyEvent event) {
     var server = TcpServer.create()
-      .port(port)
-      .doOnChannelInit((obs, cfg, addr) -> 
-          cfg.pipeline()
-            .addLast(new DelimiterBasedFrameDecoder(4096, Delimiters.nulDelimiter()))
-      )
-      .handle((in, out) -> 
-          out.send(event.getApplicationContext()
-              .getBean(Flow.class)
-              .create(in.receive()))
-            .then()
-      ).bindNow();
+        .port(port)
+        .doOnChannelInit((obs, cfg, addr) -> cfg.pipeline()
+            .addLast(new DelimiterBasedFrameDecoder(4096, Delimiters.nulDelimiter())))
+        .handle((in, out) -> out.send(event.getApplicationContext()
+            .getBean(Flow.class)
+            .create(in.receive()))
+            .then())
+        .bindNow();
 
     server.onDispose().block();
   }
 }
-

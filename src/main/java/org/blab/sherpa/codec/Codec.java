@@ -1,19 +1,15 @@
 package org.blab.sherpa.codec;
 
-import java.util.Map;
-
 import org.reactivestreams.Publisher;
+import org.springframework.messaging.Message;
 
-import io.netty.buffer.ByteBuf;
-import lombok.Getter;
-import lombok.Setter;
-import reactor.core.publisher.Flux;
+public interface Codec<T> {
+  static final String HEADERS_TOPIC = "_topic";
+  static final String HEADERS_TIMESTAMP = "_timestamp";
+  static final String HEADERS_DESCRIPTION = "_description";
 
-public interface Codec<T, V> {
-  Flux<V> decode(Publisher<T> in);
+  Publisher<Message<?>> decode(Publisher<T> in);
 
-  Flux<T> encode(Publisher<V> in);
-
-  record Record(ByteBuf payload, Map<String, Object> hints) {}
+  Publisher<T> encode(Publisher<Message<?>> in);
 }
 
