@@ -17,12 +17,10 @@ import io.netty.buffer.ByteBuf;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
-
 @Service
 public class LegacyFlow implements Flow, ApplicationContextAware {
-  private Codec<ByteBuf> codec;
   private ApplicationContext context;
+  private Codec<ByteBuf> codec;
 
   private @Value("${platform.mqtt.timeout}") int timeout;
 
@@ -40,46 +38,41 @@ public class LegacyFlow implements Flow, ApplicationContextAware {
   public Publisher<ByteBuf> create(Publisher<ByteBuf> in) {
     var session = context.getBean("mqttSession", Session.class);
 
+    session.connect().mono().log()
+        .doOnError(e -> {
+          session.close().mono().log().subscribe();
+        })
+        .subscribe();
+
     return codec.encode(Flux.merge(
-      connect(session),
-      listen(session),
-      interpret(in, session)
-    ));
+        session.listen().flux(),
+        interpret(codec.decode(in), session)));
   }
 
-  private Publisher<Message<?>> connect(Session session) {
-    return Mono.from(session.connect().get())
-      .timeout(Duration.ofSeconds(timeout))
-      .flatMap(c -> Mono.<Message<?>>empty());
-  }
+  private Publisher<Message<?>> interpret(Publisher<Message<?>> in, Session session) {
+    return Flux.from(in)
+        .flatMap(msg -> {
+          if (msg instanceof ErrorMessage)
+            return Mono.just(msg);
 
-  private Publisher<Message<?>> listen(Session session) {
-    return Flux.from(session.listen().get());
-  }
-
-  private Publisher<Message<?>> interpret(Publisher<ByteBuf> msgs, Session session) {
-    return Flux.from(codec.decode(msgs))
-      .flatMap(msg -> {
-        if (msg instanceof ErrorMessage) return Mono.just(msg);
-
-        return switch (msg.getHeaders().get(LegacyCodec.HEADERS_METHOD, LegacyCodec.Method.class)) {
-          case POLL -> session
-            .poll(msg.getHeaders().get(LegacyCodec.HEADERS_TOPIC, String.class))
-            .get();
-          case SUBSCRIBE -> Mono.from(session
-            .subscribe(msg.getHeaders().get(LegacyCodec.HEADERS_TOPIC, String.class))
-            .get())
-            .then(Mono.empty());
-          case UNSUBSCRIBE -> Mono.from(session
-            .unsubscribe(msg.getHeaders().get(LegacyCodec.HEADERS_TOPIC, String.class))
-            .get())
-            .then(Mono.empty());
-          case PUBLISH -> Mono.from(session
-            .publish(msg)
-            .get())
-            .then(Mono.empty());
-        };
-      }).log();
+          return switch (msg.getHeaders().get(LegacyCodec.HEADERS_METHOD, LegacyCodec.Method.class)) {
+            case POLL -> session
+                .poll(msg.getHeaders().get(LegacyCodec.HEADERS_TOPIC, String.class))
+                .mono()
+                .onErrorComplete();
+            case SUBSCRIBE -> Mono.from(session
+                .subscribe(msg.getHeaders().get(LegacyCodec.HEADERS_TOPIC, String.class))
+                .get())
+                .then(Mono.empty());
+            case UNSUBSCRIBE -> Mono.from(session
+                .unsubscribe(msg.getHeaders().get(LegacyCodec.HEADERS_TOPIC, String.class))
+                .get())
+                .then(Mono.empty());
+            case PUBLISH -> Mono.from(session
+                .publish(msg)
+                .get())
+                .then(Mono.empty());
+          };
+        });
   }
 }
-

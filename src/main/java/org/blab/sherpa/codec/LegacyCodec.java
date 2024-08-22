@@ -47,18 +47,18 @@ public class LegacyCodec implements Codec<ByteBuf> {
     var payload = new HashMap<String, Object>();
 
     Arrays.stream(msg.trim().split("\\|"))
-      .map(s -> s.split(":"))
-      .filter(s -> s.length == 2 && !s[1].isBlank())
-      .forEach(e -> {
-           switch (e[0]) {
+        .map(s -> s.split(":"))
+        .filter(s -> s.length == 2 && !s[1].isBlank())
+        .forEach(e -> {
+          switch (e[0]) {
             case "method", "meth", "m" -> headers.putIfAbsent(HEADERS_METHOD, parseMethod(e[1]));
             case "name", "n" -> headers.putIfAbsent(HEADERS_TOPIC, parseTopic(e[1]));
             case "descr" -> headers.putIfAbsent(HEADERS_DESCRIPTION, parseDescription(e[1]));
             case "time" -> headers.putIfAbsent(HEADERS_TIMESTAMP, parseTimestamp(e[1]));
             default -> payload.put(e[0], e[1]);
-          }       
-      });
-  
+          }
+        });
+
     var hdrs = new MessageHeaders(headers);
 
     if (!headers.containsKey(HEADERS_TOPIC))
@@ -112,22 +112,21 @@ public class LegacyCodec implements Codec<ByteBuf> {
       resp.append("|descr:" + msg.getHeaders().getOrDefault(HEADERS_DESCRIPTION, "null"));
 
       ((Map<String, Object>) msg.getPayload())
-        .forEach((k, v) -> resp.append(String.format("|%s:%s", k, v.toString())));
+          .forEach((k, v) -> resp.append(String.format("|%s:%s", k, v.toString())));
     }
 
     return Mono.just(Unpooled.copiedBuffer(resp.append('\n')
-          .toString()
-          .getBytes(StandardCharsets.UTF_8)));
+        .toString()
+        .getBytes(StandardCharsets.UTF_8)));
 
   }
 
   private String getTimestamp(Message<?> msg) {
     return encodeTimestamp((Long) msg.getHeaders()
-      .getOrDefault(HEADERS_TIMESTAMP, msg.getHeaders().getTimestamp()));
+        .getOrDefault(HEADERS_TIMESTAMP, msg.getHeaders().getTimestamp()));
   }
 
   private String encodeTimestamp(Long timestamp) {
     return new SimpleDateFormat(TIME_FMT).format(timestamp);
   }
 }
-
