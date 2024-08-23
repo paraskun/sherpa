@@ -10,36 +10,42 @@ public interface Session {
   /**
    * Connect to the platform.
    *
+   * <p>
    * Note that the timeout must be explicitly specified
    * by the consumer, otherwise operation may run indefinitely.
    * 
    * @return true, if operataion succeed;
-   * @return emptry, if the session was closed or {@link PlatformException} occurs;
-   * @return {@link java.util.concurrent.ExecutionException}
+   * @return {@link PlatformException}, if execution exception occurred.
    */
   Connect<Boolean> connect();
 
   /**
    * Listen for the new {@link Message}s in subscribed topic.
    *
-   * If a fatal platform exception occurs, terminates with an error.
-   * If a session is close, terminates with nothing.
-   *
    * @return stream of {@link Message}s from subscribed topics.
+   * @return {@link PlatformException}, if execution exception occurred.
+   * @return {@link org.blab.sherpa.codec.Codec}, if deserialization exception
+   *         occurred.
    */
   Listen<Message<?>> listen();
 
   /**
-   * Poll the latest {@link Message} from given topic.
+   * Poll the last {@link Message} from given topic.
    *
+   * <p>
+   * If this topic is already being watched, the last {@link Message}
+   * will be used twice: here and in the Listen command.
+   *
+   * <p>
    * Note that the timeout should be explicitly specified
    * by the consumer, otherwise operation may run indefinitely.
    *
-   * If a fatal platform exception occurs, terminates with an error.
-   * If a session is close, terminates with nothing.
-   *
    * @param topic latest {@link Message} in given topic.
+   *
    * @return latest {@link Message}.
+   * @return {@link PlatformException}, if execution exception occurred.
+   * @return {@link org.blab.sherpa.codec.CodecException}, if deserialization
+   *         exception occurred.
    */
   Poll<Message<?>> poll(String topic);
 
@@ -47,38 +53,36 @@ public interface Session {
    * Subscribe on the given topic.
    *
    * @param topic topic to observe.
-   * @return subscribed topic, if the operation succeeds.
-   * @return emptry, if the session was closed or
-   *         a {@link PlatformException} occurs.
+   *
+   * @return subscribed topic.
+   * @return {@link PlatformException}, if execution exception occurred.
    */
   Subscribe<String> subscribe(String topic);
 
   /**
    * Unsubscribe from the given topic.
    *
-   * If a fatal platform exception occurs, terminates with an error.
-   * If a session is close, terminates with nothing.
-   *
    * @param topic topic to ignore.
+   *
    * @return unsubscribed topic.
+   * @return {@link PlatformException}, if execution exception occurred.
    */
   Unsubscribe<String> unsubscribe(String topic);
 
   /**
    * Publish given {@link Message} on the platform.
    *
-   * If a fatal platform exception occurs, terminates with an error.
-   * If a session is close, terminates with nothing.
-   *
    * @param msg {@link Message} to be published.
+   *
    * @return published {@link Message}.
+   * @return {@link PlatformException}, if execution exception occurred.
+   * @return {@link org.blab.sherpa.codec.CodecException}, if serialization
+   *         exception occurred.
    */
   Publish<Message<?>> publish(Message<?> msg);
 
   /**
    * Terminate all active operations and disconnect from the platform.
-   *
-   * If a fatal platform exception occurs, terminates with an error.
    */
   Close<Void> close();
 }
