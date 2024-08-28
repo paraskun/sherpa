@@ -23,7 +23,9 @@ import java.util.Map;
 @SuppressWarnings("unchecked")
 public class LegacyCodec implements Codec<ByteBuf> {
   public static final String TIME_FMT = "dd.MM.yyyy HH_mm_ss.SSS";
+
   public static final String HEADERS_METHOD = "_method";
+  public static final String HEADERS_DESCRIPTION = "_description";
 
   public enum Method {
     POLL, SUBSCRIBE, UNSUBSCRIBE, PUBLISH
@@ -35,60 +37,61 @@ public class LegacyCodec implements Codec<ByteBuf> {
   }
 
   private Message<?> decode(ByteBuf in) {
-    try {
-      return parse(in.toString(StandardCharsets.UTF_8));
-    } catch (CodecException e) {
-      return new ErrorMessage(e);
-    }
+    return parse(in.toString(StandardCharsets.UTF_8));
   }
 
   private Message<?> parse(String msg) {
     var headers = new HashMap<String, Object>();
     var payload = new HashMap<String, Object>();
 
-    Arrays.stream(msg.trim().split("\\|"))
+    Arrays.stream(msg.split("\\|"))
         .map(s -> s.split(":"))
-        .filter(s -> s.length == 2 && !s[1].isBlank())
-        .forEach(e -> {
-          switch (e[0]) {
-            case "method", "meth", "m" -> headers.putIfAbsent(HEADERS_METHOD, parseMethod(e[1]));
-            case "name", "n" -> headers.putIfAbsent(HEADERS_TOPIC, parseTopic(e[1]));
-            case "descr" -> headers.putIfAbsent(HEADERS_DESCRIPTION, parseDescription(e[1]));
-            case "time" -> headers.putIfAbsent(HEADERS_TIMESTAMP, parseTimestamp(e[1]));
-            default -> payload.put(e[0], e[1]);
+        .filter(f -> f.length == 2)
+        .filter(f -> !f[0].isBlank() && !f[1].isBlank())
+        .map(f -> {
+          f[0] = f[0].trim().toLowerCase();
+          f[1] = f[1].trim();
+
+          return f;
+        })
+        .forEach(f -> {
+          switch (f[0]) {
+            case "method", "meth", "m" ->
+              headers.putIfAbsent(HEADERS_METHOD, decodeMethod(f[1]));
+            case "name", "n" ->
+              headers.putIfAbsent(HEADERS_TOPIC, f[1]);
+            case "descr" ->
+              headers.putIfAbsent(HEADERS_DESCRIPTION, f[1]);
+            case "time" ->
+              headers.putIfAbsent(HEADERS_TIMESTAMP, decodeTimestamp(f[1]));
+            default -> payload.putIfAbsent(f[0], f[1]);
           }
         });
 
     var hdrs = new MessageHeaders(headers);
 
-    if (!headers.containsKey(HEADERS_TOPIC))
-      return new ErrorMessage(new CodecException("name field not found"), hdrs);
+    if (!.containsKey(HEADERS_TOPIC))
+      return new ErrorMessage(new HeaderNotFoundException("topic"), hdrs);
 
     if (!headers.containsKey(HEADERS_METHOD))
-      return new ErrorMessage(new CodecException("method field not found"), hdrs);
+      return new ErrorMessage(new HeaderNotFoundException("method"), hdrs);
+    else if (headers.get(HEADERS_METHOD).equals(null))
+      return new ErrorMessage(new Unknown)
 
     return MessageBuilder.createMessage(payload, hdrs);
   }
 
-  private Method parseMethod(String method) {
+  private Method decodeMethod(String method) {
     return switch (method) {
       case "get", "g", "getfull", "gf" -> Method.POLL;
       case "subscribe", "subscr", "sb" -> Method.SUBSCRIBE;
       case "release", "rel", "free", "f" -> Method.UNSUBSCRIBE;
       case "set", "s" -> Method.PUBLISH;
-      default -> throw new CodecException(String.format("method (%s) not supported", method));
+      default -> throw new UnknownMethodException(method);
     };
   }
 
-  private String parseTopic(String topic) {
-    return topic;
-  }
-
-  private String parseDescription(String description) {
-    return description;
-  }
-
-  private Long parseTimestamp(String time) {
+  private Long decodeTimestamp(String time) {
     try {
       return new SimpleDateFormat(TIME_FMT).parse(time).getTime();
     } catch (Exception e) {
@@ -102,6 +105,17 @@ public class LegacyCodec implements Codec<ByteBuf> {
   }
 
   private Mono<ByteBuf> encode(Message<?> msg) {
+    var response = switch (msg) {
+      case ErrorMessage err -> switch (err.getPayload()) {};
+      default -> {
+        var builder = new StringBuilder(String.format("time:%d|name:%s|", 
+              msg.getHeaders().get(HEADERS_TIMESTAMP, Long.class),
+              msg.getHeaders().get(HEADERS_TOPIC, String.class)
+              ));
+
+
+      }
+    }
     var resp = new StringBuilder("time:" + getTimestamp(msg));
 
     resp.append("|name:" + msg.getHeaders().getOrDefault(HEADERS_TOPIC, "error"));

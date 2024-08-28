@@ -18,7 +18,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
-public class LegacyFlow implements Flow, ApplicationContextAware {
+public class LegacyHandler implements Handler, ApplicationContextAware {
   private ApplicationContext context;
   private Codec<ByteBuf> codec;
 
@@ -35,7 +35,7 @@ public class LegacyFlow implements Flow, ApplicationContextAware {
   }
 
   @Override
-  public Publisher<ByteBuf> create(Publisher<ByteBuf> in) {
+  public Publisher<Message<?>> handle(Publisher<Message<?>> in) {
     var session = context.getBean("mqttSession", Session.class);
 
     session.connect().mono().log()

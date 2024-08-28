@@ -7,7 +7,6 @@ import org.springframework.messaging.Message;
 public interface Codec<T> {
   static final String HEADERS_TOPIC = "_topic";
   static final String HEADERS_TIMESTAMP = "_timestamp";
-  static final String HEADERS_DESCRIPTION = "_description";
 
   /**
    * Decode messages.
