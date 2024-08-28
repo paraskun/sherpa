@@ -25,15 +25,14 @@ public class LegacyCodec implements Codec<ByteBuf> {
   public static final String TIME_FMT = "dd.MM.yyyy HH_mm_ss.SSS";
 
   public static final String HEADERS_METHOD = "_method";
-  public static final String HEADERS_DESCRIPTION = "_description";
 
   public enum Method {
     POLL, SUBSCRIBE, UNSUBSCRIBE, PUBLISH
   }
 
   @Override
-  public Flux<Message<?>> decode(Publisher<ByteBuf> in) {
-    return Flux.from(in).map(this::decode);
+  public Publisher<Message<?>> decode(ByteBuf in) {
+    return Mono.from();
   }
 
   private Message<?> decode(ByteBuf in) {
