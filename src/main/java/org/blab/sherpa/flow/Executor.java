@@ -3,12 +3,8 @@ package org.blab.sherpa.flow;
 import org.reactivestreams.Publisher;
 import org.springframework.messaging.Message;
 
-/** Handles an I/O event flow. */
+/** Handles an I/O events. */
 public interface Executor {
-  /**
-   * Handle given {@link Message} flow.
-   *
-   * @return {@link Message} flow for further processing.
-   */
+  /** Handle given {@link Message}. */
   Publisher<Message<?>> execute(Message<?> in);
 }

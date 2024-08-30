@@ -1,12 +1,12 @@
 package org.blab.sherpa.platform;
 
-import reactor.core.publisher.Mono;
+import org.reactivestreams.Publisher;
 
 /**
  * {@link Command} to connect to the platform.
  */
 public class Connect<T> extends Command<T> {
-  public Connect(Mono<T> cmd) {
+  public Connect(Publisher<T> cmd) {
     super(cmd);
   }
 }

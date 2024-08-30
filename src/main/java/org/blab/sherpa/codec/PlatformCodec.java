@@ -6,65 +6,81 @@ import com.hivemq.client.mqtt.mqtt5.datatypes.Mqtt5UserProperties;
 import com.hivemq.client.mqtt.mqtt5.message.publish.Mqtt5Publish;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+
 import org.reactivestreams.Publisher;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.ErrorMessage;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+@Log4j2
 @Component
 @RequiredArgsConstructor
 public class PlatformCodec implements Codec<Mqtt5Publish> {
   private final Gson gson;
 
   @Override
-  public Flux<Message<?>> decode(Publisher<Mqtt5Publish> in) {
-    return Flux.from(in)
-        .map(event -> {
-          try {
-            var builder = MessageBuilder
-                .withPayload(gson.fromJson(
-                    new String(event.getPayloadAsBytes(), StandardCharsets.UTF_8),
-                    new TypeToken<Map<String, Object>>() {
-                    }.getType()))
-                .setHeader(HEADERS_TOPIC, event.getTopic().toString());
+  public Publisher<Message<?>> decode(Mqtt5Publish in) {
+    try {
+      var builder = MessageBuilder
+          .withPayload(decodePayload(in.getPayloadAsBytes()))
+          .setHeader(HEADERS_TOPIC, in.getTopic().toString());
 
-            event.getUserProperties().asList().forEach(p -> {
-              switch (p.getName().toString()) {
-                case "timestamp" -> builder.setHeader(HEADERS_TIMESTAMP, p.getValue().toByteBuffer().getLong());
-                case "description" -> builder.setHeader(HEADERS_DESCRIPTION, p.getValue().toString());
-              }
-            });
+      in.getUserProperties()
+          .asList()
+          .forEach(p -> {
+            switch (p.getName().toString()) {
+              case "timestamp" -> builder.setHeader(HEADERS_TIMESTAMP, p.getValue()
+                  .toByteBuffer()
+                  .getLong());
+              default -> builder.setHeader("_" + p.getName().toString(), p.getValue()
+                  .toString());
+            }
+          });
 
-            return builder.build();
-          } catch (Exception e) {
-            return new ErrorMessage(e);
-          }
-        });
+      return Mono.just(builder.build());
+    } catch (Exception e) {
+      log.warn(e);
+      return Mono.empty();
+    }
+  }
+
+  private Map<String, Object> decodePayload(byte[] raw) {
+    var payload = new String(raw, StandardCharsets.UTF_8);
+    var token = new TypeToken<Map<String, Object>>() {
+    }.getType();
+
+    return gson.fromJson(payload, token);
   }
 
   @Override
-  public Flux<Mqtt5Publish> encode(Publisher<Message<?>> in) {
-    return Flux.from(in)
-        .map(msg -> {
-          var properties = Mqtt5UserProperties.builder()
-              .add("timestamp", (String) msg.getHeaders()
-                  .getOrDefault(HEADERS_TIMESTAMP, msg.getHeaders()
-                      .getTimestamp()
-                      .toString()));
+  public Publisher<Mqtt5Publish> encode(Message<?> in) {
+    if (in instanceof ErrorMessage e) {
+      log.warn("Unexpected error occured.", e.getPayload());
+      return Mono.empty();
+    }
 
-          if (msg.getHeaders().containsKey(HEADERS_DESCRIPTION))
-            properties.add("description", msg.getHeaders().get(HEADERS_DESCRIPTION, String.class));
+    var properties = Mqtt5UserProperties.builder();
 
-          return Mqtt5Publish.builder()
-              .topic(msg.getHeaders().get(HEADERS_TOPIC, String.class))
-              .payload(gson.toJson(msg.getPayload()).getBytes(StandardCharsets.UTF_8))
-              .userProperties(properties.build())
-              .build();
-        });
+    in.getHeaders().entrySet()
+        .stream()
+        .filter(e -> e.getKey().startsWith("_"))
+        .filter(e -> !e.getKey().equals(HEADERS_TOPIC))
+        .forEach(e -> properties.add(e.getKey().substring(1), e.getValue().toString()));
+
+    return Mono.just(Mqtt5Publish.builder()
+        .topic(in.getHeaders().get(HEADERS_TOPIC, String.class))
+        .payload(encodePayload(in.getPayload()))
+        .userProperties(properties.build())
+        .build());
+  }
+
+  private byte[] encodePayload(Object payload) {
+    return gson.toJson(payload).getBytes(StandardCharsets.UTF_8);
   }
 }

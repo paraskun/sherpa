@@ -2,15 +2,15 @@ package org.blab.sherpa.codec;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import lombok.Getter;
 
 import org.reactivestreams.Publisher;
 import org.springframework.core.codec.CodecException;
 import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.support.ErrorMessage;
 import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
@@ -25,28 +25,34 @@ public class LegacyCodec implements Codec<ByteBuf> {
   public static final String TIME_FMT = "dd.MM.yyyy HH_mm_ss.SSS";
 
   public static final String HEADERS_METHOD = "_method";
+  public static final String HEADERS_DESCRIPTION = "_description";
 
+  private static final String ERROR_METHOD = "method (%s) not supported";
+  private static final String ERROR_FIELD = "%s field not found";
+  private static final String ERROR_UNKNOWN = "unknown";
+
+  @Getter
   public enum Method {
-    POLL, SUBSCRIBE, UNSUBSCRIBE, PUBLISH
+    POLL, SUBSCRIBE, UNSUBSCRIBE, PUBLISH, UNKNOWN;
+
+    private String value;
+
+    public Method setValue(String value) {
+      this.value = value;
+      return this;
+    }
   }
 
   @Override
   public Publisher<Message<?>> decode(ByteBuf in) {
-    return Mono.from();
-  }
-
-  private Message<?> decode(ByteBuf in) {
-    return parse(in.toString(StandardCharsets.UTF_8));
-  }
-
-  private Message<?> parse(String msg) {
-    var headers = new HashMap<String, Object>();
+    var headers = new MessageHeaderAccessor();
     var payload = new HashMap<String, Object>();
 
-    Arrays.stream(msg.split("\\|"))
+    Arrays.stream(in.toString(StandardCharsets.UTF_8).split("\\|"))
         .map(s -> s.split(":"))
         .filter(f -> f.length == 2)
-        .filter(f -> !f[0].isBlank() && !f[1].isBlank())
+        .filter(f -> !f[0].isBlank())
+        .filter(f -> !f[1].isBlank())
         .map(f -> {
           f[0] = f[0].trim().toLowerCase();
           f[1] = f[1].trim();
@@ -56,28 +62,29 @@ public class LegacyCodec implements Codec<ByteBuf> {
         .forEach(f -> {
           switch (f[0]) {
             case "method", "meth", "m" ->
-              headers.putIfAbsent(HEADERS_METHOD, decodeMethod(f[1]));
+              headers.setHeaderIfAbsent(HEADERS_METHOD, decodeMethod(f[1]));
             case "name", "n" ->
-              headers.putIfAbsent(HEADERS_TOPIC, f[1]);
+              headers.setHeaderIfAbsent(HEADERS_TOPIC, f[1]);
             case "descr" ->
-              headers.putIfAbsent(HEADERS_DESCRIPTION, f[1]);
+              headers.setHeaderIfAbsent(HEADERS_DESCRIPTION, f[1]);
             case "time" ->
-              headers.putIfAbsent(HEADERS_TIMESTAMP, decodeTimestamp(f[1]));
+              headers.setHeaderIfAbsent(HEADERS_TIMESTAMP, decodeTimestamp(f[1]));
             default -> payload.putIfAbsent(f[0], f[1]);
           }
         });
 
-    var hdrs = new MessageHeaders(headers);
+    Message<?> message = MessageBuilder
+        .withPayload(payload)
+        .setHeaders(headers)
+        .build();
 
-    if (!.containsKey(HEADERS_TOPIC))
-      return new ErrorMessage(new HeaderNotFoundException("topic"), hdrs);
+    try {
+      validate(message);
+    } catch (CodecException e) {
+      message = new ErrorMessage(e, message.getHeaders());
+    }
 
-    if (!headers.containsKey(HEADERS_METHOD))
-      return new ErrorMessage(new HeaderNotFoundException("method"), hdrs);
-    else if (headers.get(HEADERS_METHOD).equals(null))
-      return new ErrorMessage(new Unknown)
-
-    return MessageBuilder.createMessage(payload, hdrs);
+    return Mono.just(message);
   }
 
   private Method decodeMethod(String method) {
@@ -86,7 +93,7 @@ public class LegacyCodec implements Codec<ByteBuf> {
       case "subscribe", "subscr", "sb" -> Method.SUBSCRIBE;
       case "release", "rel", "free", "f" -> Method.UNSUBSCRIBE;
       case "set", "s" -> Method.PUBLISH;
-      default -> throw new UnknownMethodException(method);
+      default -> Method.UNKNOWN.setValue(method);
     };
   }
 
@@ -98,48 +105,63 @@ public class LegacyCodec implements Codec<ByteBuf> {
     }
   }
 
+  private void validate(Message<?> msg) {
+    if (!msg.getHeaders().containsKey(HEADERS_TOPIC))
+      throw new HeaderNotFoundException(HEADERS_TOPIC);
+
+    if (!msg.getHeaders().containsKey(HEADERS_METHOD))
+      throw new HeaderNotFoundException(HEADERS_METHOD);
+
+    if (msg.getHeaders().get(HEADERS_METHOD).equals(Method.UNKNOWN))
+      throw new UnknownMethodException(msg.getHeaders()
+          .get(HEADERS_METHOD, Method.class)
+          .getValue());
+  }
+
   @Override
-  public Flux<ByteBuf> encode(Publisher<Message<?>> in) {
-    return Flux.from(in).flatMap(this::encode);
+  public Publisher<ByteBuf> encode(Message<?> in) {
+    return Mono.just(
+        switch (in) {
+          case ErrorMessage e -> encodeError(e);
+          default -> encodeEvent(in);
+        });
   }
 
-  private Mono<ByteBuf> encode(Message<?> msg) {
-    var response = switch (msg) {
-      case ErrorMessage err -> switch (err.getPayload()) {};
-      default -> {
-        var builder = new StringBuilder(String.format("time:%d|name:%s|", 
-              msg.getHeaders().get(HEADERS_TIMESTAMP, Long.class),
-              msg.getHeaders().get(HEADERS_TOPIC, String.class)
-              ));
+  private ByteBuf encodeEvent(Message<?> in) {
+    var response = new StringBuilder("time:" + in.getHeaders()
+        .get(HEADERS_TIMESTAMP, Long.class));
 
-
+    in.getHeaders().entrySet().forEach(e -> {
+      switch (e.getKey()) {
+        case HEADERS_TOPIC -> response.append("|name:" + e.getValue());
+        case HEADERS_DESCRIPTION -> response.append("|descr:" + e.getValue());
       }
-    }
-    var resp = new StringBuilder("time:" + getTimestamp(msg));
+    });
 
-    resp.append("|name:" + msg.getHeaders().getOrDefault(HEADERS_TOPIC, "error"));
+    ((Map<String, Object>) in.getPayload()).forEach((k, v) -> {
+      response.append(String.format("|%s:%s", k, v));
+    });
 
-    if (msg instanceof ErrorMessage err)
-      resp.append(String.format("|val:error|descr:%s", err.getPayload().getMessage()));
-    else {
-      resp.append("|descr:" + msg.getHeaders().getOrDefault(HEADERS_DESCRIPTION, "null"));
-
-      ((Map<String, Object>) msg.getPayload())
-          .forEach((k, v) -> resp.append(String.format("|%s:%s", k, v.toString())));
-    }
-
-    return Mono.just(Unpooled.copiedBuffer(resp.append('\n')
-        .toString()
-        .getBytes(StandardCharsets.UTF_8)));
-
+    return Unpooled.wrappedBuffer(response.toString().getBytes(StandardCharsets.UTF_8));
   }
 
-  private String getTimestamp(Message<?> msg) {
-    return encodeTimestamp((Long) msg.getHeaders()
-        .getOrDefault(HEADERS_TIMESTAMP, msg.getHeaders().getTimestamp()));
-  }
+  private ByteBuf encodeError(ErrorMessage in) {
+    var description = switch (in.getPayload()) {
+      case HeaderNotFoundException e ->
+        String.format(ERROR_FIELD, e.getHeaderName().equals("topic") ? "name" : e.getHeaderName());
+      case UnknownMethodException e ->
+        String.format(ERROR_METHOD, e.getMethodName());
+      default -> ERROR_UNKNOWN;
+    };
 
-  private String encodeTimestamp(Long timestamp) {
-    return new SimpleDateFormat(TIME_FMT).format(timestamp);
+    var response = String.format("time:%d|name:%s|val:error|descr:%s",
+        in.getHeaders()
+            .get(HEADERS_TIMESTAMP, Long.class)
+            .toString(),
+        in.getHeaders()
+            .getOrDefault(HEADERS_TOPIC, "error"),
+        description);
+
+    return Unpooled.wrappedBuffer(response.getBytes(StandardCharsets.UTF_8));
   }
 }

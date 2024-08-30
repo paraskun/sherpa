@@ -1,9 +1,11 @@
 server:
     port: 8080
+    frame:
+      length: 2048
 
 platform:
     mqtt:
         host: localhost
         port: 1883
-        timeout: 15
+        timeout: 15000
 

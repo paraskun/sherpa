@@ -21,17 +21,6 @@ public interface Session {
   Connect<Boolean> connect();
 
   /**
-   * Listen for the new {@link Message}s in subscribed topic.
-   *
-   * {@link Message} is logged and skipped when a deserialization exception occur.
-   *
-   * @return stream of {@link Message}s from subscribed topics.
-   * @return empty, if the Session was closed by the client.
-   * @return {@link PlatformException}, if the Session was closed unexpectedly.
-   */
-  Listen<Message<?>> listen();
-
-  /**
    * Poll the last {@link Message} from given topic.
    *
    * <p>
@@ -59,11 +48,11 @@ public interface Session {
    *
    * @param topic topic to observe.
    *
-   * @return subscribed topic.
+   * @return {@link Message} flow for given topic.
    * @return empty, if the Session was closed by the client.
    * @return {@link PlatformException}, if platform-specific exception occurred.
    */
-  Subscribe<String> subscribe(String topic);
+  Subscribe<Message<?>> subscribe(String topic);
 
   /**
    * Unsubscribe from the given topic.
@@ -74,7 +63,7 @@ public interface Session {
    * @return empty, if the Session was closed by the client.
    * @return {@link PlatformException}, if platform-specific exception occurred.
    */
-  Unsubscribe<String> unsubscribe(String topic);
+  Unsubscribe<Boolean> unsubscribe(String topic);
 
   /**
    * Publish given {@link Message} on the platform.
@@ -87,7 +76,7 @@ public interface Session {
    * @return {@link org.blab.sherpa.codec.CodecException}, if serialization
    *         exception occurred.
    */
-  Publish<Message<?>> publish(Message<?> msg);
+  Publish<Boolean> publish(Message<?> msg);
 
   /**
    * Terminate all active operations and disconnect from the platform.

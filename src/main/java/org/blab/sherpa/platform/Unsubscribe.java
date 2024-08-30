@@ -1,7 +1,8 @@
 package org.blab.sherpa.platform;
 
+import org.reactivestreams.Publisher;
+
 import lombok.Getter;
-import reactor.core.publisher.Mono;
 
 /**
  * {@link Command} for unsubscribing from the desired platform topic.
@@ -10,7 +11,7 @@ import reactor.core.publisher.Mono;
 public class Unsubscribe<T> extends Command<T> {
   private final String topic;
 
-  public Unsubscribe(String topic, Mono<T> cmd) {
+  public Unsubscribe(String topic, Publisher<T> cmd) {
     super(cmd);
     this.topic = topic;
   }

@@ -32,8 +32,8 @@ public class Sherpa {
         .port(port)
         .doOnChannelInit((obs, cfg, addr) -> cfg.pipeline().addFirst(before()))
         .handle((in, out) -> {
-          var codec = codec(event.getApplicationContext());
-          var executor = executor(event.getApplicationContext());
+          var codec = getCodec(event.getApplicationContext());
+          var executor = getExecutor(event.getApplicationContext());
 
           return out
               .send(in.receive()
@@ -53,11 +53,11 @@ public class Sherpa {
     };
   }
 
-  private Codec<ByteBuf> codec(ApplicationContext context) {
-    return context.getBean(Codec.class, "legacyCodec");
+  private Codec<ByteBuf> getCodec(ApplicationContext context) {
+    return context.getBean("legacyCodec", Codec.class);
   }
 
-  private Executor executor(ApplicationContext context) {
+  private Executor getExecutor(ApplicationContext context) {
     return context.getBean(Executor.class);
   }
 }
