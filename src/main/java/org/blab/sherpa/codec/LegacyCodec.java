@@ -1,11 +1,9 @@
 package org.blab.sherpa.codec;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 
 import org.reactivestreams.Publisher;
-import org.springframework.core.codec.CodecException;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.ErrorMessage;
 import org.springframework.messaging.support.MessageBuilder;
@@ -13,15 +11,15 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+@Log4j2
 @Component
 @SuppressWarnings("unchecked")
-public class LegacyCodec implements Codec<ByteBuf> {
+public class LegacyCodec implements Codec<String> {
   public static final String TIME_FMT = "dd.MM.yyyy HH_mm_ss.SSS";
 
   public static final String HEADERS_METHOD = "_method";
@@ -44,11 +42,13 @@ public class LegacyCodec implements Codec<ByteBuf> {
   }
 
   @Override
-  public Publisher<Message<?>> decode(ByteBuf in) {
+  public Publisher<Message<?>> decode(String in) {
+    log.warn(in);
+
     var headers = new MessageHeaderAccessor();
     var payload = new HashMap<String, Object>();
 
-    Arrays.stream(in.toString(StandardCharsets.UTF_8).split("\\|"))
+    Arrays.stream(in.split("\\|"))
         .map(s -> s.split(":"))
         .filter(f -> f.length == 2)
         .filter(f -> !f[0].isBlank())
@@ -72,6 +72,8 @@ public class LegacyCodec implements Codec<ByteBuf> {
             default -> payload.putIfAbsent(f[0], f[1]);
           }
         });
+
+    headers.setHeaderIfAbsent(HEADERS_TIMESTAMP, System.currentTimeMillis());
 
     Message<?> message = MessageBuilder
         .withPayload(payload)
@@ -119,7 +121,7 @@ public class LegacyCodec implements Codec<ByteBuf> {
   }
 
   @Override
-  public Publisher<ByteBuf> encode(Message<?> in) {
+  public Publisher<String> encode(Message<?> in) {
     return Mono.just(
         switch (in) {
           case ErrorMessage e -> encodeError(e);
@@ -127,7 +129,7 @@ public class LegacyCodec implements Codec<ByteBuf> {
         });
   }
 
-  private ByteBuf encodeEvent(Message<?> in) {
+  private String encodeEvent(Message<?> in) {
     var response = new StringBuilder("time:" + in.getHeaders()
         .get(HEADERS_TIMESTAMP, Long.class));
 
@@ -142,26 +144,23 @@ public class LegacyCodec implements Codec<ByteBuf> {
       response.append(String.format("|%s:%s", k, v));
     });
 
-    return Unpooled.wrappedBuffer(response.toString().getBytes(StandardCharsets.UTF_8));
+    return response.append('\n').toString();
   }
 
-  private ByteBuf encodeError(ErrorMessage in) {
+  private String encodeError(ErrorMessage in) {
     var description = switch (in.getPayload()) {
       case HeaderNotFoundException e ->
-        String.format(ERROR_FIELD, e.getHeaderName().equals("topic") ? "name" : e.getHeaderName());
+        String.format(ERROR_FIELD, e.getHeaderName().equals(HEADERS_TOPIC) ? "name" : e.getHeaderName().substring(1));
       case UnknownMethodException e ->
         String.format(ERROR_METHOD, e.getMethodName());
       default -> ERROR_UNKNOWN;
     };
 
-    var response = String.format("time:%d|name:%s|val:error|descr:%s",
+    return String.format("time:%d|name:%s|val:error|descr:%s\n",
         in.getHeaders()
-            .get(HEADERS_TIMESTAMP, Long.class)
-            .toString(),
+            .get(HEADERS_TIMESTAMP, Long.class),
         in.getHeaders()
             .getOrDefault(HEADERS_TOPIC, "error"),
         description);
-
-    return Unpooled.wrappedBuffer(response.getBytes(StandardCharsets.UTF_8));
   }
 }

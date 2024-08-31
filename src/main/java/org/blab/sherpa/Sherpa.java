@@ -35,11 +35,12 @@ public class Sherpa {
           var codec = getCodec(event.getApplicationContext());
           var executor = getExecutor(event.getApplicationContext());
 
-          return out
-              .send(in.receive()
-                  .flatMap(codec::decode)
-                  .flatMap(executor::execute)
-                  .flatMap(codec::encode))
+          return out.sendString(in.receive().asString()
+              .flatMap(codec::decode)
+              .log()
+              .flatMap(executor::execute)
+              .flatMap(codec::encode)
+              .log())
               .then();
         })
         .bindNow();
@@ -49,11 +50,11 @@ public class Sherpa {
 
   private ChannelHandler[] before() {
     return new ChannelHandler[] {
-        new DelimiterBasedFrameDecoder(frameLength, Delimiters.nulDelimiter())
+        new DelimiterBasedFrameDecoder(frameLength, Delimiters.lineDelimiter())
     };
   }
 
-  private Codec<ByteBuf> getCodec(ApplicationContext context) {
+  private Codec<String> getCodec(ApplicationContext context) {
     return context.getBean("legacyCodec", Codec.class);
   }
 

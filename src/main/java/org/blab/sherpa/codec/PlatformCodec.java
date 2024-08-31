@@ -35,9 +35,8 @@ public class PlatformCodec implements Codec<Mqtt5Publish> {
           .asList()
           .forEach(p -> {
             switch (p.getName().toString()) {
-              case "timestamp" -> builder.setHeader(HEADERS_TIMESTAMP, p.getValue()
-                  .toByteBuffer()
-                  .getLong());
+              case "timestamp" -> builder.setHeader(HEADERS_TIMESTAMP, Long.parseLong(p.getValue()
+                  .toString()));
               default -> builder.setHeader("_" + p.getName().toString(), p.getValue()
                   .toString());
             }
@@ -45,7 +44,7 @@ public class PlatformCodec implements Codec<Mqtt5Publish> {
 
       return Mono.just(builder.build());
     } catch (Exception e) {
-      log.warn(e);
+      log.error(e);
       return Mono.empty();
     }
   }
@@ -71,6 +70,7 @@ public class PlatformCodec implements Codec<Mqtt5Publish> {
         .stream()
         .filter(e -> e.getKey().startsWith("_"))
         .filter(e -> !e.getKey().equals(HEADERS_TOPIC))
+        .filter(e -> !e.getKey().equals(LegacyCodec.HEADERS_METHOD))
         .forEach(e -> properties.add(e.getKey().substring(1), e.getValue().toString()));
 
     return Mono.just(Mqtt5Publish.builder()

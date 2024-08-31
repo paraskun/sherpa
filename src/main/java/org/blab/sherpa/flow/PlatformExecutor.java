@@ -6,6 +6,7 @@ import org.blab.sherpa.codec.LegacyCodec;
 import org.blab.sherpa.codec.LegacyCodec.Method;
 import org.blab.sherpa.platform.Session;
 import org.reactivestreams.Publisher;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Scope;
 import org.springframework.messaging.Message;
@@ -17,15 +18,16 @@ import reactor.core.publisher.Mono;
 @Service
 @Scope("prototype")
 public class PlatformExecutor implements Executor {
-  private @Value("${platform.mqtt.timeout}") long timeout;
-
   private final Session session;
 
-  public PlatformExecutor(Session session) {
+  public PlatformExecutor(
+      @Autowired Session session,
+      @Value("${platform.mqtt.timeout}") long timeout) {
     this.session = session;
 
-    session.connect().mono().log()
+    session.connect().mono()
         .timeout(Duration.ofMillis(timeout))
+        .log()
         .subscribe();
   }
 
