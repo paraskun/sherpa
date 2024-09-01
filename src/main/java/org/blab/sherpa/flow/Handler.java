@@ -4,7 +4,7 @@ import org.reactivestreams.Publisher;
 import org.springframework.messaging.Message;
 
 /** Handles an I/O events. */
-public interface Executor {
+public interface Handler {
   /** Handle given {@link Message}. */
-  Publisher<Message<?>> execute(Message<?> in);
+  Publisher<Message<?>> handle(Message<?> in);
 }

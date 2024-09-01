@@ -43,8 +43,6 @@ public class LegacyCodec implements Codec<String> {
 
   @Override
   public Publisher<Message<?>> decode(String in) {
-    log.warn(in);
-
     var headers = new MessageHeaderAccessor();
     var payload = new HashMap<String, Object>();
 
