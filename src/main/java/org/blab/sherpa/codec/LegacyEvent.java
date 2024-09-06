@@ -20,6 +20,10 @@ public class LegacyEvent extends Event {
   }
 
   public static class Builder extends Event.Builder {
+    private Builder() {
+      event = new LegacyEvent();
+    }
+
     public Builder method(@NonNull Method method) {
       event.setHeaderIfAbsent(HDRS_METHOD, method);
       return this;
@@ -27,10 +31,12 @@ public class LegacyEvent extends Event {
 
     @Override
     public LegacyEvent build() {
+      super.build();
+
       if (event.getHeader(HDRS_METHOD).isEmpty())
         throw new HeaderMissedException(event.getHeaders(), HDRS_METHOD);
 
-      return (LegacyEvent) super.build();
+      return (LegacyEvent) event;
     }
   }
 }

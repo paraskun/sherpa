@@ -61,7 +61,8 @@ public class Sherpa {
     return out.sendString(in.receive().asString()
         .flatMap(codec::decode)
         .flatMap(handler::handle)
-        .flatMap(codec::encode))
+        .flatMap(codec::encode)
+        .log())
         .then();
 
   }

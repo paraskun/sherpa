@@ -27,6 +27,10 @@ dependencies {
     testImplementation 'io.projectreactor:reactor-test:3.6.9'
 }
 
+tasks.named("bootBuildImage") {
+  imageName = "ghcr.io/meha4j/${project.name}"
+}
+
 test {
   useJUnitPlatform()
 }

@@ -106,14 +106,9 @@ public class LegacyCodec implements Codec<String> {
   }
 
   private String encodeEvent(Event event) {
-    var response = new StringBuilder();
-
-    response.append("time:" + event.getTimestamp());
-    response.append("|name:" + event.getTopic());
-
-    event.getHeadersUnsafe().entrySet().stream()
-        .filter(es -> !es.getKey().startsWith("_"))
-        .forEach(es -> response.append("|" + es.getKey() + ":" + es.getValue()));
+    var response = new StringBuilder()
+        .append("time:" + encodeTimestamp(event.getTimestamp()))
+        .append("|name:" + event.getTopic());
 
     event.forEach((k, v) -> {
       response.append(String.format("|%s:%s", k, v));
@@ -124,7 +119,7 @@ public class LegacyCodec implements Codec<String> {
 
   private String encodeError(ErrorMessage err) {
     var response = new StringBuilder()
-        .append("time:" + err.getHeaders().get(Event.HDRS_TIMESTAMP))
+        .append("time:" + encodeTimestamp(err.getHeaders().get(Event.HDRS_TIMESTAMP, Long.class)))
         .append("|name:" + err.getHeaders().getOrDefault(Event.HDRS_TOPIC, "error"))
         .append("|val:error");
 
@@ -141,5 +136,9 @@ public class LegacyCodec implements Codec<String> {
         .append("|descr:" + description)
         .append('\n')
         .toString();
+  }
+
+  private String encodeTimestamp(Long timestamp) {
+    return new SimpleDateFormat(TIME_FMT).format(timestamp);
   }
 }

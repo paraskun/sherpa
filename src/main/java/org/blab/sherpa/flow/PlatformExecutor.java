@@ -26,6 +26,7 @@ public class PlatformExecutor implements Handler {
 
     session.connect().mono()
         .timeout(Duration.ofMillis(timeout))
+        .log()
         .subscribe();
   }
 

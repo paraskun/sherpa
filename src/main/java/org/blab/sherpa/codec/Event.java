@@ -70,7 +70,7 @@ public class Event extends HashMap<String, Object>
   }
 
   public static class Builder {
-    protected final Event event;
+    protected Event event;
 
     Builder() {
       event = new Event();
