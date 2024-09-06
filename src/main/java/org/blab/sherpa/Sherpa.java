@@ -2,6 +2,9 @@ package org.blab.sherpa;
 
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
+import lombok.extern.log4j.Log4j2;
+
+import java.util.Properties;
 
 import org.blab.sherpa.codec.Codec;
 import org.blab.sherpa.flow.Handler;
@@ -18,9 +21,13 @@ import reactor.netty.NettyInbound;
 import reactor.netty.NettyOutbound;
 import reactor.netty.tcp.TcpServer;
 
+@Log4j2
 @SpringBootApplication
 @SuppressWarnings("unchecked")
 public class Sherpa {
+  public static final Integer DEFAULT_PORT = 8080;
+  public static final Integer DEFAULT_FRAME_LENGTH = 2048;
+
   private Environment env;
   private ApplicationContext ctx;
 
@@ -30,8 +37,14 @@ public class Sherpa {
 
   @EventListener
   public void onReady(ApplicationReadyEvent event) {
-    var port = env.getProperty("server.port", Integer.class, 8080);
-    var length = env.getProperty("server.frame.length", Integer.class, 2048);
+    if (!env.containsProperty("server.port"))
+      log.warn("Property server.port does not secified, default is used ({}).", DEFAULT_PORT);
+
+    if (!env.containsProperty("server.frame.length"))
+      log.warn("Property server.frame.length does not specified, default is used ({}).", DEFAULT_FRAME_LENGTH);
+
+    var port = env.getProperty("server.port", Integer.class, DEFAULT_PORT);
+    var length = env.getProperty("server.frame.length", Integer.class, DEFAULT_FRAME_LENGTH);
 
     var server = TcpServer.create()
         .port(port)

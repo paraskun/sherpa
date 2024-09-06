@@ -11,7 +11,6 @@ import lombok.extern.log4j.Log4j2;
 import org.reactivestreams.Publisher;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.ErrorMessage;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -26,19 +25,21 @@ public class PlatformCodec implements Codec<Mqtt5Publish> {
 
   @Override
   public Publisher<Message<?>> decode(Mqtt5Publish in) {
+    log.debug("Decoding: {}.", in);
+
     try {
-      var builder = MessageBuilder
-          .withPayload(decodePayload(in.getPayloadAsBytes()))
-          .setHeader(HEADERS_TOPIC, in.getTopic().toString());
+      var builder = Event.builder()
+          .topic(in.getTopic().toString())
+          .fields(decodePayload(in.getPayloadAsBytes()));
 
       in.getUserProperties()
           .asList()
           .forEach(p -> {
             switch (p.getName().toString()) {
-              case "timestamp" -> builder.setHeader(HEADERS_TIMESTAMP, Long.parseLong(p.getValue()
-                  .toString()));
-              default -> builder.setHeader("_" + p.getName().toString(), p.getValue()
-                  .toString());
+              case "timestamp" -> builder
+                  .timestamp(Long.parseLong(p.getValue().toString()));
+              default -> builder
+                  .header(p.getName().toString(), p.getValue().toString());
             }
           });
 
@@ -50,6 +51,8 @@ public class PlatformCodec implements Codec<Mqtt5Publish> {
   }
 
   private Map<String, Object> decodePayload(byte[] raw) {
+    log.debug("Parsing json: {}.", new String(raw));
+
     var payload = new String(raw, StandardCharsets.UTF_8);
     var token = new TypeToken<Map<String, Object>>() {
     }.getType();
@@ -59,25 +62,29 @@ public class PlatformCodec implements Codec<Mqtt5Publish> {
 
   @Override
   public Publisher<Mqtt5Publish> encode(Message<?> in) {
-    if (in instanceof ErrorMessage e) {
-      log.warn("Unexpected error occured.", e.getPayload());
-      return Mono.empty();
+    log.debug("Encoding: {}.", in);
+
+    switch (in) {
+      case ErrorMessage e -> {
+        log.error("Unexpected exception from platform.", e.getPayload());
+        return Mono.empty();
+      }
+      case Event event -> {
+        var properties = Mqtt5UserProperties.builder();
+
+        in.getHeaders().entrySet()
+            .stream()
+            .filter(e -> !e.getKey().startsWith("_"))
+            .forEach(e -> properties.add(e.getKey(), e.getValue().toString()));
+
+        return Mono.just(Mqtt5Publish.builder()
+            .topic(event.getTopic())
+            .payload(encodePayload(event.getPayload()))
+            .userProperties(properties.build())
+            .build());
+      }
+      default -> throw new RuntimeException("Unsupported message type.");
     }
-
-    var properties = Mqtt5UserProperties.builder();
-
-    in.getHeaders().entrySet()
-        .stream()
-        .filter(e -> e.getKey().startsWith("_"))
-        .filter(e -> !e.getKey().equals(HEADERS_TOPIC))
-        .filter(e -> !e.getKey().equals(LegacyCodec.HEADERS_METHOD))
-        .forEach(e -> properties.add(e.getKey().substring(1), e.getValue().toString()));
-
-    return Mono.just(Mqtt5Publish.builder()
-        .topic(in.getHeaders().get(HEADERS_TOPIC, String.class))
-        .payload(encodePayload(in.getPayload()))
-        .userProperties(properties.build())
-        .build());
   }
 
   private byte[] encodePayload(Object payload) {

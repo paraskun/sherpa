@@ -16,14 +16,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+/** {@link Codec} for legacy messaging protocol (known as VCAS). */
 @Log4j2
 @Component
 @SuppressWarnings("unchecked")
 public class LegacyCodec implements Codec<String> {
   public static final String TIME_FMT = "dd.MM.yyyy HH_mm_ss.SSS";
 
-  public static final String HEADERS_METHOD = "_method";
-  public static final String HEADERS_DESCRIPTION = "_description";
+  public static final String HDRS_METHOD = "_method";
+  public static final String HDRS_DESCRIPTION = "description";
 
   private static final String ERROR_METHOD = "method (%s) not supported";
   private static final String ERROR_FIELD = "%s field not found";
@@ -43,8 +44,7 @@ public class LegacyCodec implements Codec<String> {
 
   @Override
   public Publisher<Message<?>> decode(String in) {
-    var headers = new MessageHeaderAccessor();
-    var payload = new HashMap<String, Object>();
+    var builder = Event.builder();
 
     Arrays.stream(in.split("\\|"))
         .map(s -> s.split(":"))
@@ -54,31 +54,28 @@ public class LegacyCodec implements Codec<String> {
         .map(f -> {
           f[0] = f[0].trim().toLowerCase();
           f[1] = f[1].trim();
-
           return f;
         })
         .forEach(f -> {
           switch (f[0]) {
             case "method", "meth", "m" ->
-              headers.setHeaderIfAbsent(HEADERS_METHOD, decodeMethod(f[1]));
+              builder.header(HDRS_METHOD, decodeMethod(f[1]));
             case "name", "n" ->
-              headers.setHeaderIfAbsent(HEADERS_TOPIC, f[1]);
+              builder.topic(f[1]);
             case "descr" ->
-              headers.setHeaderIfAbsent(HEADERS_DESCRIPTION, f[1]);
+              builder.header(HDRS_DESCRIPTION, f[1]);
             case "time" ->
-              headers.setHeaderIfAbsent(HEADERS_TIMESTAMP, decodeTimestamp(f[1]));
-            default -> payload.putIfAbsent(f[0], f[1]);
+              builder.timestamp(decodeTimestamp(f[1]));
+            default ->
+              builder.field(f[0], f[1]);
           }
         });
 
-    headers.setHeaderIfAbsent(HEADERS_TIMESTAMP, System.currentTimeMillis());
+    builder.timestamp(System.currentTimeMillis());
 
-    Message<?> message = MessageBuilder
-        .withPayload(payload)
-        .setHeaders(headers)
-        .build();
 
     try {
+      Message<?> message = builder.build();
       validate(message);
     } catch (CodecException e) {
       message = new ErrorMessage(e, message.getHeaders());
@@ -107,10 +104,10 @@ public class LegacyCodec implements Codec<String> {
 
   private void validate(Message<?> msg) {
     if (!msg.getHeaders().containsKey(HEADERS_TOPIC))
-      throw new HeaderNotFoundException(HEADERS_TOPIC);
+      throw new HeaderMissedException(HEADERS_TOPIC);
 
     if (!msg.getHeaders().containsKey(HEADERS_METHOD))
-      throw new HeaderNotFoundException(HEADERS_METHOD);
+      throw new HeaderMissedException(HEADERS_METHOD);
 
     if (msg.getHeaders().get(HEADERS_METHOD).equals(Method.UNKNOWN))
       throw new UnknownMethodException(msg.getHeaders()
@@ -147,8 +144,9 @@ public class LegacyCodec implements Codec<String> {
 
   private String encodeError(ErrorMessage in) {
     var description = switch (in.getPayload()) {
-      case HeaderNotFoundException e ->
-        String.format(ERROR_FIELD, e.getHeaderName().equals(HEADERS_TOPIC) ? "name" : e.getHeaderName().substring(1));
+      case HeaderMissedException e ->
+        String.format(ERROR_FIELD, e.getHeaderName()
+            .equals(HEADERS_TOPIC) ? "name" : e.getHeaderName().substring(1));
       case UnknownMethodException e ->
         String.format(ERROR_METHOD, e.getMethodName());
       default -> ERROR_UNKNOWN;
