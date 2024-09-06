@@ -2,7 +2,7 @@ package org.blab.sherpa.flow;
 
 import java.time.Duration;
 
-import org.blab.sherpa.codec.LegacyCodec;
+import org.blab.sherpa.codec.LegacyEvent;
 import org.blab.sherpa.codec.LegacyCodec.Method;
 import org.blab.sherpa.platform.Session;
 import org.reactivestreams.Publisher;
@@ -31,29 +31,32 @@ public class PlatformExecutor implements Handler {
 
   @Override
   public Publisher<Message<?>> handle(Message<?> msg) {
-    if (msg instanceof ErrorMessage)
-      return Mono.just(msg);
+    return switch (msg) {
+      case ErrorMessage e -> Mono.just(e);
+      case LegacyEvent le ->
+        switch (le.getMethod()) {
+          case Method.POLL -> session
+              .poll(le.getTopic())
+              .mono()
+              .onErrorComplete();
+          case Method.SUBSCRIBE -> session
+              .subscribe(le.getTopic())
+              .flux()
+              .onErrorComplete();
+          case Method.UNSUBSCRIBE -> session
+              .unsubscribe(le.getTopic())
+              .mono()
+              .onErrorComplete()
+              .then(Mono.empty());
+          case Method.PUBLISH -> session
+              .publish(msg)
+              .mono()
+              .onErrorComplete()
+              .then(Mono.empty());
+          default -> Mono.empty();
+        };
 
-    return switch (msg.getHeaders().get(LegacyCodec.HEADERS_METHOD, Method.class)) {
-      case Method.POLL -> session
-          .poll(msg.getHeaders().get(LegacyCodec.HEADERS_TOPIC, String.class))
-          .mono()
-          .onErrorComplete();
-      case Method.SUBSCRIBE -> session
-          .subscribe(msg.getHeaders().get(LegacyCodec.HEADERS_TOPIC, String.class))
-          .flux()
-          .onErrorComplete();
-      case Method.UNSUBSCRIBE -> session
-          .unsubscribe(msg.getHeaders().get(LegacyCodec.HEADERS_TOPIC, String.class))
-          .mono()
-          .onErrorComplete()
-          .then(Mono.empty());
-      case Method.PUBLISH -> session
-          .publish(msg)
-          .mono()
-          .onErrorComplete()
-          .then(Mono.empty());
-      default -> Mono.empty();
+      default -> throw new RuntimeException("Unsupported message type.");
     };
   }
 }

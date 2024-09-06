@@ -4,8 +4,6 @@ import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
 import lombok.extern.log4j.Log4j2;
 
-import java.util.Properties;
-
 import org.blab.sherpa.codec.Codec;
 import org.blab.sherpa.flow.Handler;
 import org.reactivestreams.Publisher;

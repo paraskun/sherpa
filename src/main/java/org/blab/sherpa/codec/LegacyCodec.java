@@ -6,25 +6,17 @@ import lombok.extern.log4j.Log4j2;
 import org.reactivestreams.Publisher;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.ErrorMessage;
-import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
 
 /** {@link Codec} for legacy messaging protocol (known as VCAS). */
 @Log4j2
 @Component
-@SuppressWarnings("unchecked")
 public class LegacyCodec implements Codec<String> {
   public static final String TIME_FMT = "dd.MM.yyyy HH_mm_ss.SSS";
-
-  public static final String HDRS_METHOD = "_method";
-  public static final String HDRS_DESCRIPTION = "description";
 
   private static final String ERROR_METHOD = "method (%s) not supported";
   private static final String ERROR_FIELD = "%s field not found";
@@ -44,7 +36,7 @@ public class LegacyCodec implements Codec<String> {
 
   @Override
   public Publisher<Message<?>> decode(String in) {
-    var builder = Event.builder();
+    var builder = LegacyEvent.builder();
 
     Arrays.stream(in.split("\\|"))
         .map(s -> s.split(":"))
@@ -59,11 +51,11 @@ public class LegacyCodec implements Codec<String> {
         .forEach(f -> {
           switch (f[0]) {
             case "method", "meth", "m" ->
-              builder.header(HDRS_METHOD, decodeMethod(f[1]));
+              builder.method(decodeMethod(f[1]));
             case "name", "n" ->
               builder.topic(f[1]);
             case "descr" ->
-              builder.header(HDRS_DESCRIPTION, f[1]);
+              builder.header(f[0], f[1]);
             case "time" ->
               builder.timestamp(decodeTimestamp(f[1]));
             default ->
@@ -73,15 +65,16 @@ public class LegacyCodec implements Codec<String> {
 
     builder.timestamp(System.currentTimeMillis());
 
-
     try {
-      Message<?> message = builder.build();
-      validate(message);
-    } catch (CodecException e) {
-      message = new ErrorMessage(e, message.getHeaders());
-    }
+      var event = builder.build();
 
-    return Mono.just(message);
+      if (event.getMethod().equals(Method.UNKNOWN))
+        throw new UnknownMethodException(event.getHeaders(), event.getMethod().getValue());
+
+      return Mono.just(event);
+    } catch (CodecException e) {
+      return Mono.just(new ErrorMessage(e, e.getHeaders()));
+    }
   }
 
   private Method decodeMethod(String method) {
@@ -102,61 +95,51 @@ public class LegacyCodec implements Codec<String> {
     }
   }
 
-  private void validate(Message<?> msg) {
-    if (!msg.getHeaders().containsKey(HEADERS_TOPIC))
-      throw new HeaderMissedException(HEADERS_TOPIC);
-
-    if (!msg.getHeaders().containsKey(HEADERS_METHOD))
-      throw new HeaderMissedException(HEADERS_METHOD);
-
-    if (msg.getHeaders().get(HEADERS_METHOD).equals(Method.UNKNOWN))
-      throw new UnknownMethodException(msg.getHeaders()
-          .get(HEADERS_METHOD, Method.class)
-          .getValue());
-  }
-
   @Override
   public Publisher<String> encode(Message<?> in) {
     return Mono.just(
         switch (in) {
           case ErrorMessage e -> encodeError(e);
-          default -> encodeEvent(in);
+          case Event e -> encodeEvent(e);
+          default -> throw new RuntimeException("Unsupported message type.");
         });
   }
 
-  private String encodeEvent(Message<?> in) {
-    var response = new StringBuilder("time:" + in.getHeaders()
-        .get(HEADERS_TIMESTAMP, Long.class));
+  private String encodeEvent(Event event) {
+    var response = new StringBuilder();
 
-    in.getHeaders().entrySet().forEach(e -> {
-      switch (e.getKey()) {
-        case HEADERS_TOPIC -> response.append("|name:" + e.getValue());
-        case HEADERS_DESCRIPTION -> response.append("|descr:" + e.getValue());
-      }
-    });
+    response.append("time:" + event.getTimestamp());
+    response.append("|name:" + event.getTopic());
 
-    ((Map<String, Object>) in.getPayload()).forEach((k, v) -> {
+    event.getHeadersUnsafe().entrySet().stream()
+        .filter(es -> !es.getKey().startsWith("_"))
+        .forEach(es -> response.append("|" + es.getKey() + ":" + es.getValue()));
+
+    event.forEach((k, v) -> {
       response.append(String.format("|%s:%s", k, v));
     });
 
     return response.append('\n').toString();
   }
 
-  private String encodeError(ErrorMessage in) {
-    var description = switch (in.getPayload()) {
+  private String encodeError(ErrorMessage err) {
+    var response = new StringBuilder()
+        .append("time:" + err.getHeaders().get(Event.HDRS_TIMESTAMP))
+        .append("|name:" + err.getHeaders().getOrDefault(Event.HDRS_TOPIC, "error"))
+        .append("|val:error");
+
+    var description = switch (err.getPayload()) {
       case HeaderMissedException e ->
         String.format(ERROR_FIELD, e.getHeaderName()
-            .equals(HEADERS_TOPIC) ? "name" : e.getHeaderName().substring(1));
+            .equals(Event.HDRS_TOPIC) ? "name" : e.getHeaderName().substring(1));
       case UnknownMethodException e ->
         String.format(ERROR_METHOD, e.getMethodName());
       default -> ERROR_UNKNOWN;
     };
 
-    return String.format("time:%d|name:%s|val:error|descr:%s\n",
-        in.getHeaders()
-            .get(HEADERS_TIMESTAMP, Long.class),
-        in.getHeaders()
-            .getOrDefault(HEADERS_TOPIC, "error"),
-        description);
+    return response
+        .append("|descr:" + description)
+        .append('\n')
+        .toString();
   }
 }

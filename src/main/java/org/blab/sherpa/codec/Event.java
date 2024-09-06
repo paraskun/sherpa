@@ -4,9 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import org.jetbrains.annotations.NotNull;
 import org.springframework.messaging.MessageHeaders;
-import org.springframework.messaging.support.MessageHeaderAccessor;
 
 import lombok.NonNull;
 
@@ -17,9 +15,9 @@ public class Event extends HashMap<String, Object>
   public static final String HDRS_TOPIC = "_topic";
   public static final String HDRS_TIMESTAMP = "timestamp";
 
-  private final MessageHeaderAccessor headers = new MessageHeaderAccessor();
+  private final Map<String, Object> headers = new HashMap<>();
 
-  private Event() {
+  protected Event() {
   }
 
   /**
@@ -30,7 +28,11 @@ public class Event extends HashMap<String, Object>
    */
   @Override
   public @NonNull MessageHeaders getHeaders() {
-    return headers.toMessageHeaders();
+    return new MessageHeaders(headers);
+  }
+
+  public @NonNull Map<String, Object> getHeadersUnsafe() {
+    return headers;
   }
 
   /**
@@ -44,74 +46,74 @@ public class Event extends HashMap<String, Object>
   }
 
   public Optional<Object> getHeader(@NonNull String key) {
-    return Optional.ofNullable(headers.getHeader(key));
+    return Optional.ofNullable(headers.get(key));
   }
 
-  public String getTopic() {
-    return (String) headers.getHeader(HDRS_TOPIC);
+  public @NonNull String getTopic() {
+    return (String) headers.get(HDRS_TOPIC);
   }
 
-  public Long getTimestamp() {
-    return (Long) headers.getHeader(HDRS_TIMESTAMP);
+  public @NonNull Long getTimestamp() {
+    return (Long) headers.get(HDRS_TIMESTAMP);
   }
 
   public void setHeader(@NonNull String key, @NonNull Object value) {
-    headers.setHeader(key, value);
+    headers.put(key, value);
   }
 
   public void setHeaderIfAbsent(@NonNull String key, @NonNull Object value) {
-    headers.setHeaderIfAbsent(key, value);
+    headers.putIfAbsent(key, value);
   }
 
-  public static EventBuilder builder() {
-    return new EventBuilder();
+  public static Builder builder() {
+    return new Builder();
   }
 
-  public static class EventBuilder {
-    private final Event event;
+  public static class Builder {
+    protected final Event event;
 
-    EventBuilder() {
+    Builder() {
       event = new Event();
     }
 
-    public EventBuilder topic(@NonNull String topic) {
+    public Builder topic(@NonNull String topic) {
       event.setHeaderIfAbsent(HDRS_TOPIC, topic);
       return this;
     }
 
-    public EventBuilder timestamp(@NonNull Long timestamp) {
+    public Builder timestamp(@NonNull Long timestamp) {
       event.setHeaderIfAbsent(HDRS_TIMESTAMP, timestamp);
       return this;
     }
 
-    public EventBuilder header(@NotNull String key, @NotNull Object value) {
+    public Builder header(@NonNull String key, @NonNull Object value) {
       if (!key.equals(HDRS_TOPIC) && !key.equals(HDRS_TIMESTAMP))
         event.setHeaderIfAbsent(key, value);
 
       return this;
     }
 
-    public EventBuilder headers(@NonNull Map<String, Object> hdrs) {
+    public Builder headers(@NonNull Map<String, Object> hdrs) {
       hdrs.forEach(this::header);
       return this;
     }
 
-    public EventBuilder field(@NotNull String key, @NotNull Object value) {
+    public Builder field(@NonNull String key, @NonNull Object value) {
       event.putIfAbsent(key, value);
       return this;
     }
 
-    public EventBuilder fields(@NonNull Map<String, Object> fields) {
+    public Builder fields(@NonNull Map<String, Object> fields) {
       fields.forEach(this::field);
       return this;
     }
 
     public Event build() {
       if (event.getHeader(HDRS_TOPIC).isEmpty())
-        throw new FieldMissedException(HDRS_TOPIC);
+        throw new HeaderMissedException(event.getHeaders(), HDRS_TOPIC);
 
       if (event.getHeader(HDRS_TIMESTAMP).isEmpty())
-        throw new FieldMissedException(HDRS_TIMESTAMP);
+        throw new HeaderMissedException(event.getHeaders(), HDRS_TIMESTAMP);
 
       return event;
     }
